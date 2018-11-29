@@ -1,9 +1,12 @@
 package cryptopals;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -24,6 +27,7 @@ import org.junit.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -241,6 +245,9 @@ public class Challenges {
   }
 
   private byte[] aes128ecbDecrypt(byte[] block, byte[] key) throws Exception {
+    Preconditions.checkArgument(block.length == BLOCK_SIZE);
+    Preconditions.checkArgument(key.length == BLOCK_SIZE);
+
     Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
     SecretKeySpec skeySpec = new SecretKeySpec(key, "AES");
     cipher.init(Cipher.DECRYPT_MODE, skeySpec);
@@ -395,6 +402,9 @@ public class Challenges {
   }
 
   private byte[] aes128ecbEncrypt(byte[] block, byte[] key) throws Exception {
+    Preconditions.checkArgument(block.length == BLOCK_SIZE);
+    Preconditions.checkArgument(key.length == BLOCK_SIZE);
+
     Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
     SecretKeySpec skeySpec = new SecretKeySpec(key, "AES");
     cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
@@ -626,4 +636,41 @@ public class Challenges {
       "MDAwMDA3SSdtIG9uIGEgcm9sbCwgaXQncyB0aW1lIHRvIGdvIHNvbG8=",
       "MDAwMDA4b2xsaW4nIGluIG15IGZpdmUgcG9pbnQgb2g=",
       "MDAwMDA5aXRoIG15IHJhZy10b3AgZG93biBzbyBteSBoYWlyIGNhbiBibG93");
+
+  @Test
+  public void challenge18() throws Exception {
+    final String encrypted = "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==";
+    final String key = "YELLOW SUBMARINE";
+    final long nonce = 0;
+
+    assertEquals("Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ",
+        new String(aes128ctr(fromBase64(encrypted), key.getBytes(), nonce)));
+  }
+
+  private byte[] aes128ctr(byte[] in, byte[] key, long nonce) throws Exception {
+    ByteBuffer ret = ByteBuffer.allocate(in.length);
+    for (long ctr = 0; ctr < Math.ceil(in.length / (float) BLOCK_SIZE); ctr++) {
+      int from = (int) ctr * BLOCK_SIZE;
+      int to = (int) (ctr + 1) * BLOCK_SIZE;
+
+      byte[] keystream = aes128ecbEncrypt(ctr(nonce, ctr), key);
+      byte[] block = Arrays.copyOfRange(in, from, to);
+
+      byte[] xored = xor(block, keystream);
+
+      if (to <= in.length) {
+        ret.put(xored);
+      }
+      else {
+        ret.put(Arrays.copyOf(xored, in.length - from));
+      }
+    }
+
+    return ret.array();
+  }
+
+  private byte[] ctr(long nonce, long ctr) {
+    return ByteBuffer.allocate(Long.BYTES * 2).order(ByteOrder.LITTLE_ENDIAN).putLong(nonce).putLong(ctr)
+        .array();
+  }
 }
