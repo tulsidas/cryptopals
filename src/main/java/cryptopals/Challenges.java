@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -244,14 +245,19 @@ public class Challenges {
         .startsWith("I'm back and I'm ringin' the bell"));
   }
 
-  private byte[] aes128ecbDecrypt(byte[] block, byte[] key) throws Exception {
+  private byte[] aes128ecbDecrypt(byte[] block, byte[] key) {
     Preconditions.checkArgument(block.length == BLOCK_SIZE);
     Preconditions.checkArgument(key.length == BLOCK_SIZE);
 
-    Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
-    SecretKeySpec skeySpec = new SecretKeySpec(key, "AES");
-    cipher.init(Cipher.DECRYPT_MODE, skeySpec);
-    return cipher.doFinal(block);
+    try {
+      Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+      SecretKeySpec skeySpec = new SecretKeySpec(key, "AES");
+      cipher.init(Cipher.DECRYPT_MODE, skeySpec);
+      return cipher.doFinal(block);
+    }
+    catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
@@ -312,7 +318,7 @@ public class Challenges {
         .startsWith("I'm back and I'm ringin' the bell"));
   }
 
-  private byte[] aes128cbcDecrypt(byte[] data, byte[] iv, byte[] key) throws Exception {
+  private byte[] aes128cbcDecrypt(byte[] data, byte[] iv, byte[] key) {
     byte[] block = Arrays.copyOf(data, BLOCK_SIZE);
     byte[] decrypted = aes128ecbDecrypt(block, key);
     byte[] xored = xor(decrypted, iv);
@@ -385,7 +391,7 @@ public class Challenges {
     return key;
   }
 
-  private byte[] aes128cbcEncrypt(byte[] data, byte[] iv, byte[] key) throws Exception {
+  private byte[] aes128cbcEncrypt(byte[] data, byte[] iv, byte[] key) {
     byte[] block = Arrays.copyOf(data, BLOCK_SIZE);
     byte[] xored = xor(block, iv);
     byte[] encrypted = aes128ecbEncrypt(xored, key);
@@ -401,14 +407,19 @@ public class Challenges {
     return encrypted;
   }
 
-  private byte[] aes128ecbEncrypt(byte[] block, byte[] key) throws Exception {
+  private byte[] aes128ecbEncrypt(byte[] block, byte[] key) {
     Preconditions.checkArgument(block.length == BLOCK_SIZE);
     Preconditions.checkArgument(key.length == BLOCK_SIZE);
 
-    Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
-    SecretKeySpec skeySpec = new SecretKeySpec(key, "AES");
-    cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
-    return cipher.doFinal(block);
+    try {
+      Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+      SecretKeySpec skeySpec = new SecretKeySpec(key, "AES");
+      cipher.init(Cipher.ENCRYPT_MODE, skeySpec);
+      return cipher.doFinal(block);
+    }
+    catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
@@ -647,7 +658,7 @@ public class Challenges {
         new String(aes128ctr(fromBase64(encrypted), key.getBytes(), nonce)));
   }
 
-  private byte[] aes128ctr(byte[] in, byte[] key, long nonce) throws Exception {
+  private byte[] aes128ctr(byte[] in, byte[] key, long nonce) {
     ByteBuffer ret = ByteBuffer.allocate(in.length);
     for (long ctr = 0; ctr < Math.ceil(in.length / (float) BLOCK_SIZE); ctr++) {
       int from = (int) ctr * BLOCK_SIZE;
@@ -672,5 +683,92 @@ public class Challenges {
   private byte[] ctr(long nonce, long ctr) {
     return ByteBuffer.allocate(Long.BYTES * 2).order(ByteOrder.LITTLE_ENDIAN).putLong(nonce).putLong(ctr)
         .array();
+  }
+
+  @Test
+  public void challenge19() throws Exception {
+    byte[] key = "a fancy password".getBytes();
+
+    final List<String> CHALLENGE_19_STRINGS = ImmutableList.of("SSBoYXZlIG1ldCB0aGVtIGF0IGNsb3NlIG9mIGRheQ==",
+        "Q29taW5nIHdpdGggdml2aWQgZmFjZXM=", "RnJvbSBjb3VudGVyIG9yIGRlc2sgYW1vbmcgZ3JleQ==",
+        "RWlnaHRlZW50aC1jZW50dXJ5IGhvdXNlcy4=", "SSBoYXZlIHBhc3NlZCB3aXRoIGEgbm9kIG9mIHRoZSBoZWFk",
+        "T3IgcG9saXRlIG1lYW5pbmdsZXNzIHdvcmRzLA==", "T3IgaGF2ZSBsaW5nZXJlZCBhd2hpbGUgYW5kIHNhaWQ=",
+        "UG9saXRlIG1lYW5pbmdsZXNzIHdvcmRzLA==", "QW5kIHRob3VnaHQgYmVmb3JlIEkgaGFkIGRvbmU=",
+        "T2YgYSBtb2NraW5nIHRhbGUgb3IgYSBnaWJl", "VG8gcGxlYXNlIGEgY29tcGFuaW9u",
+        "QXJvdW5kIHRoZSBmaXJlIGF0IHRoZSBjbHViLA==", "QmVpbmcgY2VydGFpbiB0aGF0IHRoZXkgYW5kIEk=",
+        "QnV0IGxpdmVkIHdoZXJlIG1vdGxleSBpcyB3b3JuOg==", "QWxsIGNoYW5nZWQsIGNoYW5nZWQgdXR0ZXJseTo=",
+        "QSB0ZXJyaWJsZSBiZWF1dHkgaXMgYm9ybi4=", "VGhhdCB3b21hbidzIGRheXMgd2VyZSBzcGVudA==",
+        "SW4gaWdub3JhbnQgZ29vZCB3aWxsLA==", "SGVyIG5pZ2h0cyBpbiBhcmd1bWVudA==",
+        "VW50aWwgaGVyIHZvaWNlIGdyZXcgc2hyaWxsLg==", "V2hhdCB2b2ljZSBtb3JlIHN3ZWV0IHRoYW4gaGVycw==",
+        "V2hlbiB5b3VuZyBhbmQgYmVhdXRpZnVsLA==", "U2hlIHJvZGUgdG8gaGFycmllcnM/",
+        "VGhpcyBtYW4gaGFkIGtlcHQgYSBzY2hvb2w=", "QW5kIHJvZGUgb3VyIHdpbmdlZCBob3JzZS4=",
+        "VGhpcyBvdGhlciBoaXMgaGVscGVyIGFuZCBmcmllbmQ=", "V2FzIGNvbWluZyBpbnRvIGhpcyBmb3JjZTs=",
+        "SGUgbWlnaHQgaGF2ZSB3b24gZmFtZSBpbiB0aGUgZW5kLA==", "U28gc2Vuc2l0aXZlIGhpcyBuYXR1cmUgc2VlbWVkLA==",
+        "U28gZGFyaW5nIGFuZCBzd2VldCBoaXMgdGhvdWdodC4=", "VGhpcyBvdGhlciBtYW4gSSBoYWQgZHJlYW1lZA==",
+        "QSBkcnVua2VuLCB2YWluLWdsb3Jpb3VzIGxvdXQu", "SGUgaGFkIGRvbmUgbW9zdCBiaXR0ZXIgd3Jvbmc=",
+        "VG8gc29tZSB3aG8gYXJlIG5lYXIgbXkgaGVhcnQs", "WWV0IEkgbnVtYmVyIGhpbSBpbiB0aGUgc29uZzs=",
+        "SGUsIHRvbywgaGFzIHJlc2lnbmVkIGhpcyBwYXJ0", "SW4gdGhlIGNhc3VhbCBjb21lZHk7",
+        "SGUsIHRvbywgaGFzIGJlZW4gY2hhbmdlZCBpbiBoaXMgdHVybiw=", "VHJhbnNmb3JtZWQgdXR0ZXJseTo=",
+        "QSB0ZXJyaWJsZSBiZWF1dHkgaXMgYm9ybi4=");
+
+    List<byte[]> ciphers = CHALLENGE_19_STRINGS.stream().map(str -> aes128ctr(fromBase64(str), key, 0))
+        .collect(Collectors.toList());
+
+    byte[] keystream = new byte[BLOCK_SIZE];
+
+    for (int i = 0; i < BLOCK_SIZE; i++) {
+      byte[] guess = new byte[BLOCK_SIZE];
+      int score = -999;
+      byte best = 0;
+      for (int b = Byte.MIN_VALUE; b <= Byte.MAX_VALUE; b++) {
+        guess[i] = (byte) b;
+
+        List<byte[]> guessedPlainTexts = ciphers.stream()
+            .map(bytes -> xor(Arrays.copyOf(bytes, BLOCK_SIZE), guess)).collect(Collectors.toList());
+
+        int _score = score(guessedPlainTexts, i);
+        if (_score > score) {
+          score = _score;
+          best = guess[i];
+        }
+      }
+
+      keystream[i] = best;
+    }
+
+    assertEquals("I have met them ", new String(xor(Arrays.copyOf(ciphers.get(0), BLOCK_SIZE), keystream)));
+    assertEquals("Coming with vivi", new String(xor(Arrays.copyOf(ciphers.get(1), BLOCK_SIZE), keystream)));
+    assertEquals("From counter or ", new String(xor(Arrays.copyOf(ciphers.get(2), BLOCK_SIZE), keystream)));
+    assertEquals("Eighteenth-centu", new String(xor(Arrays.copyOf(ciphers.get(3), BLOCK_SIZE), keystream)));
+    assertEquals("I have passed wi", new String(xor(Arrays.copyOf(ciphers.get(4), BLOCK_SIZE), keystream)));
+  }
+
+  private int score(final List<byte[]> chars, final int pos) {
+    return chars.stream().map(bytes -> (char) bytes[pos]).mapToInt(c -> {
+      if (isFrequent(c)) {
+        return 5;
+      }
+      else if (isLetterOrSpace(c)) {
+        return 3;
+      }
+      else if (isSymbol(c)) {
+        return 1;
+      }
+      else {
+        return -1;
+      }
+    }).sum();
+  }
+
+  private boolean isFrequent(char c) {
+    return Arrays.binarySearch("AEHINORSTaehinorst".toCharArray(), c) >= 0;
+  }
+
+  private boolean isLetterOrSpace(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == ' ';
+  }
+
+  private boolean isSymbol(char c) {
+    return c == ',' || c == '\'' || c == '.';
   }
 }
